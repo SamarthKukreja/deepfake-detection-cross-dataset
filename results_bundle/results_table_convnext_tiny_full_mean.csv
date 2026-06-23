@@ -1,0 +1,2 @@
+experiment,model_name,primary_level,video_auc,video_accuracy,video_f1,video_eer,face_auc,n_videos,n_faces
+Exp 4: Mixed → DFD,convnext_tiny,video,0.9154,0.7098,0.5893,0.1593,0.8611,634,11636

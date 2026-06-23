@@ -1,0 +1,2 @@
+experiment,model_name,primary_level,video_auc,video_accuracy,video_f1,video_eer,face_auc,n_videos,n_faces
+Exp 4: Mixed → DFD,efficientnet_b4,video,0.7876,0.6877,0.5976,0.2713,0.7436,634,11636

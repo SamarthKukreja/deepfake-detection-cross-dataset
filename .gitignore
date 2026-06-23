@@ -1,0 +1,106 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Data, media, and trained models — NEVER commit (multi-GB; rebuildable)
+# ──────────────────────────────────────────────────────────────────────────────
+dataset/                    # source videos (FF++ / CelebDF / DFD)
+faces/                      # extracted face crops (~3 GB)
+results/                    # old results folder (superseded by results_bundle/)
+*.pth                       # PyTorch model weights (any location)
+*.pkl                       # pickle checkpoints
+*.h5                        # HDF5 model files
+*.zip                       # packaged uploads
+
+# raw media
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.webm
+*.gif
+
+# ──────────────────────────────────────────────────────────────────────────────
+# results_bundle — keep metrics/JSON, ignore weights and generated plots
+# ──────────────────────────────────────────────────────────────────────────────
+results_bundle/**/best_model.pth
+results_bundle/**/plots/
+results_bundle/**/failure_cases.csv
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Face extraction artifacts / logs
+# ──────────────────────────────────────────────────────────────────────────────
+**/face_metadata.jsonl
+**/face_metadata.jsonl*.bak
+**/face_extraction_summary.json
+*.log
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Python
+# ──────────────────────────────────────────────────────────────────────────────
+venv/
+.venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+*.pyo
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Streamlit app
+# ──────────────────────────────────────────────────────────────────────────────
+.streamlit/                 # may contain secrets.toml
+
+# ──────────────────────────────────────────────────────────────────────────────
+# ML experiment tracking
+# ──────────────────────────────────────────────────────────────────────────────
+wandb/
+mlruns/
+lightning_logs/
+
+# ──────────────────────────────────────────────────────────────────────────────
+# thesis_files/ — working copy of paper assets; overleaf/ is the clean export
+# ──────────────────────────────────────────────────────────────────────────────
+thesis_files/
+
+# ──────────────────────────────────────────────────────────────────────────────
+# analysis/ — scratch scripts and logs, not part of reproducible pipeline
+# ──────────────────────────────────────────────────────────────────────────────
+analysis/
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Experiment backups / local scratch
+# ──────────────────────────────────────────────────────────────────────────────
+experiments/*.backup*.json
+_*.py                       # underscore-prefixed one-off helper scripts
+debug_*.py                  # debug scripts
+*.tmp
+*.temp
+tmp_*/
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Node / legacy web client
+# ──────────────────────────────────────────────────────────────────────────────
+client/
+node_modules/
+.next/
+*.tsbuildinfo
+.env
+.env.local
+.env*.local
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Markdown — keep only README.md; all others are working notes / reports
+# ──────────────────────────────────────────────────────────────────────────────
+*.md
+!README.md
+
+# ──────────────────────────────────────────────────────────────────────────────
+# OS / editors
+# ──────────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+*.swo

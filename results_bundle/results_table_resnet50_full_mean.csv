@@ -1,0 +1,2 @@
+experiment,model_name,primary_level,video_auc,video_accuracy,video_f1,video_eer,face_auc,n_videos,n_faces
+Exp 4: Mixed → DFD,resnet50,video,0.8117,0.694,0.5819,0.2429,0.7605,634,11636

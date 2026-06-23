@@ -1,0 +1,2 @@
+experiment,model_name,primary_level,video_auc,video_accuracy,video_f1,video_eer,face_auc,n_videos,n_faces
+Exp 4: Mixed → DFD,vit_base_patch16_224,video,0.7131,0.6498,0.6022,0.3375,0.6838,634,11636
