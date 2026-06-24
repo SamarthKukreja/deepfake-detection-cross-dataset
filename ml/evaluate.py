@@ -334,6 +334,18 @@ def record_for_path(face_path: str, label: int, metadata: Dict[str, Dict]) -> Di
     return fallback_metadata(face_path, label)
 
 
+def _frame_idx_from_path(path: str) -> int:
+    """Extract frame index from face filename like video_id_frame045_face0.jpg."""
+    stem = Path(path).stem
+    marker = "_frame"
+    if marker not in stem:
+        return 0
+    try:
+        return int(stem.split(marker, 1)[1].split("_")[0])
+    except (ValueError, IndexError):
+        return 0
+
+
 def aggregate_video_predictions(
     paths: List[str],
     y_true: np.ndarray,
@@ -354,9 +366,11 @@ def aggregate_video_predictions(
             "dataset": rec.get("dataset", "unknown"),
             "label": int(label),
             "scores": [],
+            "frame_indices": [],
             "n_faces": 0,
         })
         item["scores"].append(float(score))
+        item["frame_indices"].append(_frame_idx_from_path(path))
         item["n_faces"] += 1
 
     rows: List[Dict] = []
@@ -373,6 +387,13 @@ def aggregate_video_predictions(
             video_score = float(np.sort(vals)[-k:].mean())
         else:
             video_score = float(vals.mean())
+
+        # Temporal consistency: sort face scores by frame index, compute std
+        frame_order = np.argsort(item["frame_indices"])
+        sorted_vals = vals[frame_order]
+        temporal_std = float(np.std(sorted_vals)) if len(sorted_vals) > 1 else 0.0
+        temporal_fused = float(min(1.0, 0.7 * video_score + 0.3 * temporal_std))
+
         row = {
             "video_key": item["video_key"],
             "video_id": item["video_id"],
@@ -380,6 +401,8 @@ def aggregate_video_predictions(
             "dataset": item["dataset"],
             "label": item["label"],
             "score": video_score,
+            "temporal_std": temporal_std,
+            "temporal_fused_score": temporal_fused,
             "n_faces": item["n_faces"],
         }
         rows.append(row)
@@ -725,6 +748,16 @@ def evaluate_experiment(
     )
     video_metrics = compute_metrics(y_video, score_video)
     video_ci = bootstrap_metric_ci(y_video, score_video)
+
+    # Temporal consistency fusion metrics
+    temporal_fused_scores = np.array(
+        [r.get("temporal_fused_score", r["score"]) for r in video_rows],
+        dtype=np.float32,
+    )
+    temporal_metrics = compute_metrics(y_video, temporal_fused_scores)
+    temporal_ci = bootstrap_metric_ci(y_video, temporal_fused_scores)
+    mean_temporal_std = float(np.mean([r.get("temporal_std", 0.0) for r in video_rows]))
+
     metrics = {
         "exp_name": exp_name,
         "model_name": getattr(model, "model_name", MODEL_NAME),
@@ -735,16 +768,25 @@ def evaluate_experiment(
         "face_level": face_metrics,
         "video_level": video_metrics,
         "video_level_ci95": video_ci,
+        "temporal_fusion": {
+            "video_level": temporal_metrics,
+            "video_level_ci95": temporal_ci,
+            "mean_temporal_std": mean_temporal_std,
+            "alpha": 0.7,
+            "description": "fused = 0.7 * spatial_mean + 0.3 * frame_score_std",
+        },
         "n_faces": int(len(y_true)),
         "n_videos": int(len(y_video)),
         **video_metrics,
     }
     print(f"\n  Results:")
-    print(f"    Face AUC : {face_metrics['auc']:.4f}  "
-          f"Video AUC : {video_metrics['auc']:.4f}")
-    print(f"    Video Acc: {video_metrics['accuracy']:.4f}")
-    print(f"    Video F1 : {video_metrics['f1']:.4f}")
-    print(f"    Video EER: {video_metrics['eer']:.4f}")
+    print(f"    Face AUC    : {face_metrics['auc']:.4f}  "
+          f"Video AUC    : {video_metrics['auc']:.4f}")
+    print(f"    Video Acc   : {video_metrics['accuracy']:.4f}")
+    print(f"    Video F1    : {video_metrics['f1']:.4f}")
+    print(f"    Video EER   : {video_metrics['eer']:.4f}")
+    print(f"    Temporal AUC: {temporal_metrics['auc']:.4f}  "
+          f"(mean σ={mean_temporal_std:.3f}, fused=0.7·spatial+0.3·σ)")
 
     with open(exp_dir / "metrics.json", "w") as f:
         json.dump(metrics, f, indent=2)

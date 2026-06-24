@@ -372,6 +372,7 @@ def process_video_all_models(
     )
 
     per_model_scores: Dict[str, List[float]] = {name: [] for name in models}
+    per_model_frame_scores: Dict[str, List[float]] = {name: [] for name in models}
     key_frames: List[np.ndarray] = []
     key_frame_interval = max(1, max_frames // 6)
 
@@ -394,6 +395,7 @@ def process_video_all_models(
                     s = score_crops(models[name], crops, device)
                     all_model_scores[name] = s
                     per_model_scores[name].extend(s)
+                    per_model_frame_scores[name].append(float(np.mean(s)))
 
                 # Mean ensemble per face for bounding-box colour
                 ensemble_per_face = [
@@ -422,7 +424,7 @@ def process_video_all_models(
 
     cap.release()
     writer.release()
-    return out_path, per_model_scores, key_frames
+    return out_path, per_model_scores, per_model_frame_scores, key_frames
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -447,8 +449,24 @@ def _vote_verdict(votes: int, n_models: int, min_votes: int) -> Tuple[str, str]:
         return "NO DEEPFAKE DETECTED", "#22C55E"
 
 
+def temporal_fusion(mean_score: float, frame_scores: List[float], alpha: float = 0.7) -> float:
+    """Blend spatial mean score with temporal variance — no retraining needed.
+
+    High frame-to-frame score variance indicates inconsistent deepfake blending:
+    some frames expose the swap, others blend well.  Even if mean score is low,
+    high variance is a tell.
+
+    fused = alpha * mean_score + (1 - alpha) * temporal_std
+    """
+    if len(frame_scores) < 2:
+        return mean_score
+    temporal_std = float(np.std(frame_scores))
+    return float(min(1.0, alpha * mean_score + (1.0 - alpha) * temporal_std))
+
+
 def render_results_panel(
     per_model_scores: Dict[str, List[float]],
+    per_model_frame_scores: Dict[str, List[float]],
     meta: Dict,
     preset: Dict,
     exp_name: str,
@@ -459,20 +477,31 @@ def render_results_panel(
     threshold  = preset["threshold"]
     min_votes  = preset["min_votes"]
 
-    # When fewer models are run than the preset requires, scale down proportionally
-    # (e.g. single-model run always needs 1 vote, not 3)
     n_models_running = len(per_model_scores)
     min_votes = min(min_votes, n_models_running)
 
-    # Per-model video score = mean over all face crops in the video
+    # Per-model mean score (spatial)
     model_results: Dict[str, float] = {
         name: float(np.mean(scores)) if scores else 0.0
         for name, scores in per_model_scores.items()
     }
+
+    # Temporal std per model (frame-to-frame variance)
+    model_temporal_std: Dict[str, float] = {
+        name: float(np.std(fscores)) if len(fscores) > 1 else 0.0
+        for name, fscores in per_model_frame_scores.items()
+    }
+
+    # Temporal-fused score = 0.7 * mean + 0.3 * temporal_std
+    model_fused: Dict[str, float] = {
+        name: temporal_fusion(model_results[name], per_model_frame_scores.get(name, []))
+        for name in model_results
+    }
+
     n_models = n_models_running
 
-    # Vote = model score ≥ threshold
-    votes = sum(1 for s in model_results.values() if s >= threshold)
+    # Vote uses fused score
+    votes = sum(1 for s in model_fused.values() if s >= threshold)
 
     # ── Verdict banner ────────────────────────────────────────────────────────
     verdict, color = _vote_verdict(votes, n_models, min_votes)
@@ -486,7 +515,7 @@ def render_results_panel(
             <span style="color:#aaa;font-size:0.95rem">
                 <b style="color:{color}">{votes}</b> / {n_models} models voted deepfake
                 &nbsp;·&nbsp; need <b>{min_votes}</b> to confirm
-                &nbsp;·&nbsp; per-model threshold {threshold:.0%}
+                &nbsp;·&nbsp; spatial + temporal fusion
             </span>
         </div>
         """,
@@ -498,13 +527,18 @@ def render_results_panel(
 
     with col_model:
         st.markdown("#### Model Results")
-        for display_name, score in model_results.items():
-            label, mcolor = _model_label(score, threshold)
-            flag = " 🚩" if score >= threshold else ""
+        for display_name, fused_score in model_fused.items():
+            mean_score = model_results[display_name]
+            tstd = model_temporal_std.get(display_name, 0.0)
+            label, mcolor = _model_label(fused_score, threshold)
+            flag = " 🚩" if fused_score >= threshold else ""
             st.markdown(
-                f'<div style="margin-bottom:6px">'
+                f'<div style="margin-bottom:8px">'
                 f'<span style="font-weight:600;text-decoration:underline">{display_name}:</span>&nbsp;'
-                f'<span style="color:{mcolor};font-weight:600">{label}{flag}</span>'
+                f'<span style="color:{mcolor};font-weight:600">{label}{flag}</span><br>'
+                f'<span style="color:#777;font-size:0.82rem">'
+                f'spatial {mean_score:.0%} · temporal σ {tstd:.2f} · fused {fused_score:.0%}'
+                f'</span>'
                 f'</div>',
                 unsafe_allow_html=True,
             )
@@ -801,7 +835,7 @@ def main() -> None:
 
     prog = st.progress(0.0, text="Starting…")
     with st.spinner(spinner_msg):
-        out_path, per_model_scores, key_frames = process_video_all_models(
+        out_path, per_model_scores, per_model_frame_scores, key_frames = process_video_all_models(
             actual_source, models_to_run, detector, device,
             preset["threshold"], frame_step, max_frames, prog,
         )
@@ -809,7 +843,7 @@ def main() -> None:
 
     # ── Results panel ─────────────────────────────────────────────────────────
     st.divider()
-    render_results_panel(per_model_scores, meta, preset, exp_name, all_metrics)
+    render_results_panel(per_model_scores, per_model_frame_scores, meta, preset, exp_name, all_metrics)
     st.divider()
 
     # ── Annotated video ───────────────────────────────────────────────────────
