@@ -61,6 +61,18 @@ lightning_logs/
 # thesis_files/ — working copy of paper assets; overleaf/ is the clean export
 # ──────────────────────────────────────────────────────────────────────────────
 thesis_files/
+paper_assets/
+*.tex
+*.pdf
+split_audit.json
+
+# Keep the journal submission folder tracked
+!paper/
+!paper/*.tex
+!paper/*.pdf
+!paper/*.py
+!paper/*.cls
+!paper/*.bst
 
 # ──────────────────────────────────────────────────────────────────────────────
 # analysis/ — scratch scripts and logs, not part of reproducible pipeline
@@ -76,6 +88,7 @@ debug_*.py                  # debug scripts
 *.tmp
 *.temp
 tmp_*/
+zidn*                       # random temp files
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Node / legacy web client
