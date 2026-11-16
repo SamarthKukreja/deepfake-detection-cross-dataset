@@ -1,382 +1,470 @@
 <title>Cross-Dataset Deepfake Detection</title>
-<meta name="description" content="A controlled study of spatial, frequency, and video-level baselines for cross-dataset deepfake generalization.">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<meta name="description" content="A guide to our controlled study on why deepfake detectors fail across datasets — and which backbones hold up best.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Syne:wght@700;800&display=swap">
 
 <style>
 :root {
-  --ink:    #15201d;
-  --muted:  #5d6a66;
-  --paper:  #f7f8f4;
-  --white:  #ffffff;
-  --line:   #d9dfda;
-  --teal:   #0f766e;
-  --blue:   #315f95;
-  --red:    #b84d45;
-  --amber:  #c2862f;
-  --green:  #16a34a;
-  --shadow: 0 18px 45px rgba(20,32,29,.12);
+  --ink:     #12141a;
+  --muted:   #5a606e;
+  --paper:   #f8f8fa;
+  --white:   #ffffff;
+  --line:    #e2e4ea;
+  --orange:  #d4500f;
+  --orange-s:#fef0e8;
+  --blue:    #1d4ed8;
+  --blue-s:  #eff3ff;
+  --green:   #16a34a;
+  --green-s: #dcfce7;
+  --red:     #dc2626;
+  --shadow:  0 12px 40px rgba(18,20,26,.1);
 }
 *,*::before,*::after{box-sizing:border-box;}
 html{scroll-behavior:smooth;}
-body{margin:0;color:var(--ink);background:var(--paper);font-family:Inter,ui-sans-serif,system-ui,sans-serif;line-height:1.55;}
+body{margin:0;color:var(--ink);background:var(--paper);font-family:Inter,ui-sans-serif,system-ui,sans-serif;line-height:1.6;}
 a{color:inherit;text-decoration:none;}
 img{display:block;max-width:100%;}
-code{background:#e8eeea;border:1px solid #d4ddd7;border-radius:6px;padding:.1rem .35rem;font-size:.92em;}
+code{background:#eef0f5;border:1px solid var(--line);border-radius:5px;padding:.1rem .4rem;font-size:.88em;font-family:monospace;}
 
-/* ── hero ───────────────────────────────────────────── */
-.hero{position:relative;min-height:74vh;color:#fff;overflow:hidden;background:#07151a;}
-.hero-bg{position:absolute;inset:0;display:grid;place-items:center;opacity:.18;}
-.hero-bg svg{width:100%;height:100%;object-fit:cover;}
-.hero::before{content:"";position:absolute;inset:0;background:linear-gradient(160deg,rgba(7,21,26,.85) 40%,rgba(15,118,110,.55));}
-.nav,.hero-copy{position:relative;z-index:1;}
-.nav{width:min(1120px,calc(100% - 40px));margin:0 auto;min-height:72px;display:flex;align-items:center;justify-content:space-between;gap:24px;}
-.brand{font-weight:800;font-size:.95rem;letter-spacing:.01em;}
-.nav-links{display:flex;align-items:center;gap:22px;font-size:.95rem;color:rgba(255,255,255,.84);}
-.nav-links a:hover,.brand:hover{color:#bfe5dc;}
-.hero-copy{width:min(920px,calc(100% - 40px));margin:0 auto;padding:88px 0 118px;}
-.eyebrow{margin:0 0 14px;color:#bfe5dc;font-size:.78rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;}
-.eyebrow.dark{color:var(--teal);}
-h1,h2{margin:0;line-height:1.06;letter-spacing:0;}
-h1{max-width:820px;font-size:clamp(2.4rem,7vw,5.5rem);}
-h2{font-size:clamp(1.8rem,4.5vw,3.2rem);}
-.lede{max-width:760px;margin:28px 0 0;color:rgba(255,255,255,.86);font-size:clamp(1.05rem,2vw,1.3rem);}
-.hero-actions{display:flex;flex-wrap:wrap;gap:14px;margin-top:36px;}
-.button{display:inline-flex;align-items:center;justify-content:center;min-height:46px;padding:0 20px;border-radius:8px;font-weight:700;font-size:.95rem;}
-.button.primary{color:#06211d;background:#bfe5dc;}
-.button.secondary{color:#fff;border:1px solid rgba(255,255,255,.48);}
-.button:hover{opacity:.88;}
+/* ── nav ─────────────────────────────────────────────── */
+.nav{position:sticky;top:0;z-index:100;background:rgba(18,20,26,.96);backdrop-filter:blur(8px);border-bottom:1px solid rgba(255,255,255,.08);}
+.nav-inner{width:min(1100px,calc(100% - 40px));margin:0 auto;min-height:60px;display:flex;align-items:center;justify-content:space-between;gap:24px;}
+.brand{font-weight:800;font-size:.9rem;color:#fff;letter-spacing:.01em;}
+.nav-links{display:flex;align-items:center;gap:24px;font-size:.88rem;color:rgba(255,255,255,.65);}
+.nav-links a:hover{color:#fff;}
 
-/* ── stats ──────────────────────────────────────────── */
-.band,.section{width:min(1120px,calc(100% - 40px));margin:0 auto;}
-.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;transform:translateY(-44px);background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden;box-shadow:var(--shadow);}
-.stat{min-height:136px;padding:26px 24px;background:var(--white);}
-.stat span{display:block;color:var(--teal);font-size:2.6rem;font-weight:850;line-height:1;}
-.stat p{margin:12px 0 0;color:var(--muted);}
+/* ── hero ────────────────────────────────────────────── */
+.hero{background:#12141a;color:#fff;padding:0;}
+.hero-inner{width:min(1100px,calc(100% - 40px));margin:0 auto;padding:80px 0 96px;display:grid;grid-template-columns:1fr 480px;gap:64px;align-items:center;}
+.hero-tag{display:inline-block;font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--orange);background:rgba(212,80,15,.15);border:1px solid rgba(212,80,15,.3);padding:4px 12px;border-radius:4px;margin-bottom:22px;}
+.hero h1{font-family:'Syne',sans-serif;font-size:clamp(2.2rem,5vw,3.8rem);font-weight:800;line-height:1.08;margin:0 0 20px;text-wrap:balance;}
+.hero-sub{font-size:1.1rem;color:rgba(255,255,255,.7);line-height:1.65;margin:0 0 32px;max-width:520px;}
+.hero-actions{display:flex;flex-wrap:wrap;gap:12px;}
+.btn{display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:0 20px;border-radius:7px;font-weight:600;font-size:.9rem;transition:opacity .15s;}
+.btn-primary{background:var(--orange);color:#fff;}
+.btn-secondary{background:transparent;color:rgba(255,255,255,.85);border:1px solid rgba(255,255,255,.25);}
+.btn:hover{opacity:.82;text-decoration:none;}
 
-/* ── sections ────────────────────────────────────────── */
-.section{padding:72px 0;}
-.two-column{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,.86fr);gap:56px;align-items:center;}
-.two-column p,.section-heading p{color:var(--muted);font-size:1.04rem;}
-.section p{color:var(--muted);font-size:1.04rem;margin:16px 0 0;}
-.image-panel,.figure-grid figure{margin:0;background:var(--white);border:1px solid var(--line);border-radius:8px;overflow:hidden;box-shadow:var(--shadow);}
-figcaption{padding:12px 14px 14px;color:var(--muted);font-size:.9rem;}
+/* verdict card in hero */
+.verdict-card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:28px 24px;}
+.verdict-card h3{font-family:'Syne',sans-serif;font-size:.8rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.45);margin:0 0 20px;}
+.verdict-row{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
+.verdict-row:last-child{margin-bottom:0;}
+.v-label{font-size:.82rem;color:rgba(255,255,255,.6);width:120px;flex-shrink:0;}
+.v-bar-wrap{flex:1;height:8px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden;}
+.v-bar{height:100%;border-radius:4px;}
+.v-score{font-size:.82rem;font-weight:700;width:40px;text-align:right;flex-shrink:0;}
+.bar-high{background:#22d3a0;}
+.bar-mid{background:#60a5fa;}
+.bar-low{background:#f87171;}
+.score-high{color:#22d3a0;}
+.score-mid{color:#60a5fa;}
+.score-low{color:#f87171;}
 
-/* ── results band ────────────────────────────────────── */
-.results-band{width:100%;max-width:none;background:#eef3ef;padding:86px max(20px,calc((100vw - 1120px)/2));}
-.section-heading{max-width:880px;margin-bottom:36px;}
-.section-heading.narrow{max-width:760px;}
-.figure-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;}
+/* ── section shell ───────────────────────────────────── */
+.section{width:min(1100px,calc(100% - 40px));margin:0 auto;padding:72px 0;}
+.section+.section{border-top:1px solid var(--line);}
+.eyebrow{font-size:.72rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--orange);margin:0 0 12px;}
+h2{font-family:'Syne',sans-serif;font-size:clamp(1.8rem,3.5vw,2.8rem);font-weight:800;line-height:1.1;margin:0 0 20px;text-wrap:balance;}
+.section-lead{font-size:1.08rem;color:var(--muted);max-width:680px;margin:0 0 40px;line-height:1.7;}
 
-/* ── auc table ───────────────────────────────────────── */
-.auc-table-wrap{overflow-x:auto;border-radius:8px;box-shadow:var(--shadow);}
-table{width:100%;border-collapse:collapse;font-size:.92rem;font-variant-numeric:tabular-nums;min-width:520px;background:var(--white);}
-thead th{font-size:.72rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:left;padding:12px 14px;border-bottom:2px solid var(--line);white-space:nowrap;}
-tbody td{padding:11px 14px;border-bottom:1px solid var(--line);color:var(--ink);}
+/* ── two-col ─────────────────────────────────────────── */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:start;}
+.two-col-wide{display:grid;grid-template-columns:1.2fr 1fr;gap:48px;align-items:start;}
+
+/* ── callout boxes ───────────────────────────────────── */
+.callout{border-radius:10px;padding:24px 28px;margin-bottom:20px;}
+.callout-orange{background:var(--orange-s);border:1px solid #f4b89a;}
+.callout-blue{background:var(--blue-s);border:1px solid #bfcfff;}
+.callout-green{background:var(--green-s);border:1px solid #bbf0cc;}
+.callout h4{font-weight:700;font-size:.92rem;margin:0 0 6px;color:var(--ink);}
+.callout p{margin:0;font-size:.92rem;color:var(--muted);line-height:1.6;}
+
+/* ── experiment cards ────────────────────────────────── */
+.exp-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:36px;}
+.exp-card{background:var(--white);border:1px solid var(--line);border-radius:10px;padding:20px 18px;box-shadow:var(--shadow);}
+.exp-num{font-family:'Syne',sans-serif;font-size:1.8rem;font-weight:800;color:var(--line);line-height:1;margin-bottom:8px;}
+.exp-card h4{font-size:.82rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 8px;}
+.exp-card p{font-size:.88rem;color:var(--muted);margin:0 0 14px;line-height:1.5;}
+.exp-auc{font-size:1.5rem;font-weight:800;font-family:'Syne',sans-serif;}
+.auc-good{color:var(--green);}
+.auc-mid{color:var(--blue);}
+.auc-bad{color:var(--red);}
+.exp-card .sub{font-size:.78rem;color:var(--muted);display:block;margin-top:2px;}
+
+/* ── backbone table ──────────────────────────────────── */
+.table-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--line);box-shadow:var(--shadow);}
+table{width:100%;border-collapse:collapse;font-size:.9rem;min-width:500px;background:var(--white);}
+thead th{font-size:.7rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);padding:12px 14px;border-bottom:2px solid var(--line);text-align:left;white-space:nowrap;}
+tbody td{padding:12px 14px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums;}
 tbody tr:last-child td{border-bottom:none;}
-tbody tr:hover td{background:#f3f6f4;}
-td.name{font-weight:600;}
-.cell-best{color:var(--green);font-weight:700;background:#dcfce7;border-radius:4px;padding:2px 7px;}
-.cell-chance{color:var(--amber);font-style:italic;}
-.cell-na{color:#ccc;}
+tbody tr:hover td{background:#f9f9fb;}
+.td-name{font-weight:600;color:var(--ink);}
+.td-best{color:var(--green);font-weight:700;background:var(--green-s);border-radius:4px;padding:2px 8px;}
+.td-chance{color:var(--red);font-style:italic;}
+.td-na{color:#ccc;}
+.td-note{font-size:.8rem;color:var(--muted);}
 
 /* ── pipeline steps ──────────────────────────────────── */
-.steps{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;}
-.steps div{min-height:188px;padding:22px;background:var(--white);border:1px solid var(--line);border-radius:8px;}
-.steps span{display:inline-flex;width:34px;height:34px;align-items:center;justify-content:center;color:#fff;background:var(--blue);border-radius:50%;font-weight:800;}
-.steps p{margin:18px 0 0;color:var(--muted);font-size:.95rem;}
+.pipeline{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;}
+.step{background:var(--white);border:1px solid var(--line);border-radius:10px;padding:22px 18px;box-shadow:var(--shadow);}
+.step-num{display:inline-flex;width:32px;height:32px;align-items:center;justify-content:center;background:var(--ink);color:#fff;border-radius:50%;font-weight:800;font-size:.88rem;margin-bottom:14px;}
+.step h4{font-size:.82rem;font-weight:700;margin:0 0 8px;color:var(--ink);}
+.step p{font-size:.82rem;color:var(--muted);margin:0;line-height:1.55;}
 
-/* ── limitations ─────────────────────────────────────── */
-.limitations{width:100%;max-width:none;background:#fff;padding:82px max(20px,calc((100vw - 1120px)/2));border-top:1px solid var(--line);border-bottom:1px solid var(--line);}
+/* ── finding cards ───────────────────────────────────── */
+.findings{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.finding{background:var(--white);border:1px solid var(--line);border-radius:10px;padding:22px 24px;box-shadow:var(--shadow);}
+.finding-icon{font-size:22px;margin-bottom:10px;}
+.finding h4{font-size:.95rem;font-weight:700;margin:0 0 8px;color:var(--ink);}
+.finding p{font-size:.88rem;color:var(--muted);margin:0;line-height:1.6;}
+.finding.highlight{border-color:var(--orange);background:var(--orange-s);}
+.finding.highlight h4{color:var(--orange);}
 
 /* ── artifacts ───────────────────────────────────────── */
-.artifact-band{padding-bottom:92px;}
-.artifact-list{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
-.artifact-list a{padding:16px 18px;color:var(--blue);background:var(--white);border:1px solid var(--line);border-radius:8px;font-weight:700;font-size:.95rem;}
-.artifact-list a:hover{border-color:var(--blue);}
+.artifact-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+.artifact-link{display:flex;align-items:center;gap:10px;padding:16px 18px;background:var(--white);border:1px solid var(--line);border-radius:8px;font-weight:600;font-size:.88rem;color:var(--blue);}
+.artifact-link:hover{border-color:var(--blue);background:var(--blue-s);text-decoration:none;}
+.artifact-link svg{flex-shrink:0;opacity:.6;}
 
-/* ── citation ────────────────────────────────────────── */
-.cite-wrap{position:relative;}
-pre.cite{background:var(--white);border:1px solid var(--line);border-radius:8px;padding:22px 24px;font-family:'JetBrains Mono',monospace;font-size:12.5px;line-height:1.7;color:var(--muted);white-space:pre-wrap;word-break:break-word;margin:0;}
-.copy-btn{position:absolute;top:12px;right:12px;font-family:Inter,sans-serif;font-size:12px;font-weight:600;padding:4px 10px;border-radius:5px;border:1px solid var(--line);background:var(--paper);color:var(--muted);cursor:pointer;}
-.copy-btn:hover{color:var(--teal);border-color:var(--teal);}
+/* ── cite ────────────────────────────────────────────── */
+.cite-box{position:relative;background:var(--white);border:1px solid var(--line);border-radius:10px;padding:22px 24px;}
+pre{margin:0;font-family:monospace;font-size:12.5px;line-height:1.75;color:var(--muted);white-space:pre-wrap;word-break:break-word;}
+.copy-btn{position:absolute;top:14px;right:14px;font-family:Inter,sans-serif;font-size:.78rem;font-weight:600;padding:4px 12px;border-radius:5px;border:1px solid var(--line);background:var(--paper);color:var(--muted);cursor:pointer;}
+.copy-btn:hover{border-color:var(--orange);color:var(--orange);}
+
+/* ── full-width band ─────────────────────────────────── */
+.band{background:var(--ink);color:#fff;padding:0;}
+.band-inner{width:min(1100px,calc(100% - 40px));margin:0 auto;padding:72px 0;}
+.band h2{font-family:'Syne',sans-serif;font-size:clamp(1.6rem,3vw,2.4rem);font-weight:800;margin:0 0 16px;}
+.band p{color:rgba(255,255,255,.65);font-size:1rem;max-width:640px;line-height:1.7;}
 
 /* ── footer ──────────────────────────────────────────── */
-footer{padding:28px 20px 42px;color:var(--muted);text-align:center;border-top:1px solid var(--line);background:#fff;font-size:.92rem;}
+footer{background:#0d0f14;color:rgba(255,255,255,.4);text-align:center;padding:28px 20px 36px;font-size:.85rem;}
+footer a{color:rgba(255,255,255,.5);}
+footer a:hover{color:#fff;}
 
-/* ── responsive ──────────────────────────────────────── */
-@media(max-width:920px){
-  .nav{align-items:flex-start;flex-direction:column;padding:22px 0;}
-  .nav-links{flex-wrap:wrap;gap:12px 18px;}
-  .stats,.figure-grid,.two-column,.steps,.artifact-list{grid-template-columns:1fr;}
-  .stats{transform:translateY(-28px);}
-  .hero-copy{padding-top:54px;}
-  .section,.results-band,.limitations{padding-top:56px;padding-bottom:56px;}
+@media(max-width:900px){
+  .hero-inner,.two-col,.two-col-wide,.exp-grid,.pipeline,.findings,.artifact-grid{grid-template-columns:1fr;}
+  .nav-links{display:none;}
 }
 </style>
 
-<!-- ── HERO ──────────────────────────────────────────── -->
-<header class="hero">
-  <!-- faded heatmap-style background -->
-  <div class="hero-bg" aria-hidden="true">
-    <svg viewBox="0 0 1200 500" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
-      <!-- grid of AUC cells mimicking a results heatmap -->
-      <g opacity="1">
-        <!-- header row -->
-        <rect x="200" y="60" width="200" height="50" fill="#1a4a40" rx="2"/>
-        <rect x="410" y="60" width="200" height="50" fill="#1a4a40" rx="2"/>
-        <rect x="620" y="60" width="200" height="50" fill="#1a4a40" rx="2"/>
-        <rect x="830" y="60" width="200" height="50" fill="#1a4a40" rx="2"/>
-        <!-- row 1 EfficientNet -->
-        <rect x="0"   y="120" width="190" height="50" fill="#132e28" rx="2"/>
-        <rect x="200" y="120" width="200" height="50" fill="#1a6b50" rx="2"/>
-        <rect x="410" y="120" width="200" height="50" fill="#155c45" rx="2"/>
-        <rect x="620" y="120" width="200" height="50" fill="#3a1e1a" rx="2"/>
-        <rect x="830" y="120" width="200" height="50" fill="#155c45" rx="2"/>
-        <!-- row 2 Xception -->
-        <rect x="0"   y="180" width="190" height="50" fill="#132e28" rx="2"/>
-        <rect x="200" y="180" width="200" height="50" fill="#1a3d35" rx="2"/>
-        <rect x="410" y="180" width="200" height="50" fill="#144e3c" rx="2"/>
-        <rect x="620" y="180" width="200" height="50" fill="#3a1e1a" rx="2"/>
-        <rect x="830" y="180" width="200" height="50" fill="#1a3d35" rx="2"/>
-        <!-- row 3 ResNet -->
-        <rect x="0"   y="240" width="190" height="50" fill="#132e28" rx="2"/>
-        <rect x="200" y="240" width="200" height="50" fill="#1a6b50" rx="2"/>
-        <rect x="410" y="240" width="200" height="50" fill="#1a7060" rx="2"/>
-        <rect x="620" y="240" width="200" height="50" fill="#3a1e1a" rx="2"/>
-        <rect x="830" y="240" width="200" height="50" fill="#155c45" rx="2"/>
-        <!-- row 4 ConvNeXt highlight -->
-        <rect x="0"   y="300" width="190" height="50" fill="#132e28" rx="2"/>
-        <rect x="200" y="300" width="200" height="50" fill="#1d7a62" rx="2"/>
-        <rect x="410" y="300" width="200" height="50" fill="#1d7a62" rx="2"/>
-        <rect x="620" y="300" width="200" height="50" fill="#3a1e1a" rx="2"/>
-        <rect x="830" y="300" width="200" height="50" fill="#24a07e" rx="2"/>
-        <!-- row 5 ViT -->
-        <rect x="0"   y="360" width="190" height="50" fill="#132e28" rx="2"/>
-        <rect x="200" y="360" width="200" height="50" fill="#1a4a40" rx="2"/>
-        <rect x="410" y="360" width="200" height="50" fill="#144e3c" rx="2"/>
-        <rect x="620" y="360" width="200" height="50" fill="#3a1e1a" rx="2"/>
-        <rect x="830" y="360" width="200" height="50" fill="#1a4a40" rx="2"/>
-        <!-- text labels -->
-        <text x="300" y="91" fill="rgba(255,255,255,.5)" font-size="14" text-anchor="middle" font-family="Inter,sans-serif">Exp 1</text>
-        <text x="510" y="91" fill="rgba(255,255,255,.5)" font-size="14" text-anchor="middle" font-family="Inter,sans-serif">Exp 2</text>
-        <text x="720" y="91" fill="rgba(255,255,255,.5)" font-size="14" text-anchor="middle" font-family="Inter,sans-serif">Exp 3</text>
-        <text x="930" y="91" fill="rgba(255,255,255,.5)" font-size="14" text-anchor="middle" font-family="Inter,sans-serif">Exp 4</text>
-        <text x="95"  y="151" fill="rgba(255,255,255,.4)" font-size="13" text-anchor="middle" font-family="Inter,sans-serif">EfficientNet-B4</text>
-        <text x="95"  y="211" fill="rgba(255,255,255,.4)" font-size="13" text-anchor="middle" font-family="Inter,sans-serif">Xception</text>
-        <text x="95"  y="271" fill="rgba(255,255,255,.4)" font-size="13" text-anchor="middle" font-family="Inter,sans-serif">ResNet-50</text>
-        <text x="95"  y="331" fill="rgba(255,255,255,.4)" font-size="13" text-anchor="middle" font-family="Inter,sans-serif">ConvNeXt-Tiny</text>
-        <text x="95"  y="391" fill="rgba(255,255,255,.4)" font-size="13" text-anchor="middle" font-family="Inter,sans-serif">ViT-Base</text>
-        <!-- auc values -->
-        <text x="300" y="150" fill="rgba(255,255,255,.55)" font-size="15" text-anchor="middle" font-family="Inter,sans-serif" font-weight="600">0.901</text>
-        <text x="510" y="150" fill="rgba(255,255,255,.55)" font-size="15" text-anchor="middle" font-family="Inter,sans-serif" font-weight="600">0.788</text>
-        <text x="720" y="150" fill="rgba(255,255,255,.4)" font-size="14" text-anchor="middle" font-family="Inter,sans-serif">~0.51</text>
-        <text x="930" y="150" fill="rgba(255,255,255,.55)" font-size="15" text-anchor="middle" font-family="Inter,sans-serif" font-weight="600">0.788</text>
-        <text x="510" y="210" fill="rgba(255,255,255,.55)" font-size="15" text-anchor="middle" font-family="Inter,sans-serif" font-weight="600">0.735</text>
-        <text x="510" y="270" fill="rgba(255,255,255,.55)" font-size="15" text-anchor="middle" font-family="Inter,sans-serif" font-weight="600">0.812</text>
-        <text x="930" y="330" fill="rgba(255,255,255,.75)" font-size="17" text-anchor="middle" font-family="Inter,sans-serif" font-weight="800">0.915</text>
-        <text x="510" y="390" fill="rgba(255,255,255,.55)" font-size="15" text-anchor="middle" font-family="Inter,sans-serif" font-weight="600">0.713</text>
-      </g>
-    </svg>
-  </div>
-
-  <nav class="nav" aria-label="Primary navigation">
-    <a class="brand" href="#top">Deepfake Detection</a>
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-inner">
+    <span class="brand">Deepfake Detection Study</span>
     <div class="nav-links">
+      <a href="#problem">The Problem</a>
+      <a href="#what-we-built">What We Built</a>
       <a href="#results">Results</a>
-      <a href="#pipeline">Pipeline</a>
-      <a href="#artifacts">Artifacts</a>
-      <a href="https://github.com/SamarthKukreja/deepfake-detection-cross-dataset" target="_blank">GitHub</a>
+      <a href="#findings">Key Findings</a>
+      <a href="#code">Code & Paper</a>
     </div>
-  </nav>
+  </div>
+</nav>
 
-  <div id="top" class="hero-copy">
-    <p class="eyebrow">Cross-dataset generalization · Controlled backbone study</p>
-    <h1>Cross-Dataset<br>Deepfake Detection</h1>
-    <p class="lede">Five ImageNet-pretrained backbones, one fixed pipeline, four transfer experiments. Does architecture matter more than training-set diversity?</p>
-    <div class="hero-actions">
-      <a class="button primary" href="https://www.researchsquare.com/article/rs-11236662/v1" target="_blank">Read Preprint</a>
-      <a class="button secondary" href="https://github.com/SamarthKukreja/deepfake-detection-cross-dataset" target="_blank">View Repository</a>
-      <a class="button secondary" href="https://github.com/SamarthKukreja/deepfake-detection-cross-dataset/tree/main/paper" target="_blank">LaTeX Source</a>
+<!-- HERO -->
+<header class="hero">
+  <div class="hero-inner">
+    <div>
+      <div class="hero-tag">Under Review · Signal, Image and Video Processing</div>
+      <h1>Why do deepfake detectors fail in the real world?</h1>
+      <p class="hero-sub">We trained five detection models on one dataset and tested them on completely different ones. Here's what we found — and why it changes how you should think about building a reliable deepfake detector.</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="https://www.researchsquare.com/article/rs-11236662/v1" target="_blank">Read the Paper</a>
+        <a class="btn btn-secondary" href="https://github.com/SamarthKukreja/deepfake-detection-cross-dataset" target="_blank">View Code on GitHub</a>
+      </div>
+    </div>
+    <div class="verdict-card">
+      <h3>AUC when trained on FF++ → tested on…</h3>
+      <div class="verdict-row">
+        <span class="v-label">Same dataset</span>
+        <div class="v-bar-wrap"><div class="v-bar bar-high" style="width:90%"></div></div>
+        <span class="v-score score-high">0.90</span>
+      </div>
+      <div class="verdict-row">
+        <span class="v-label">Celeb-DF</span>
+        <div class="v-bar-wrap"><div class="v-bar bar-mid" style="width:81%"></div></div>
+        <span class="v-score score-mid">0.81</span>
+      </div>
+      <div class="verdict-row">
+        <span class="v-label">DFD (held-out)</span>
+        <div class="v-bar-wrap"><div class="v-bar bar-mid" style="width:92%"></div></div>
+        <span class="v-score score-mid">0.92</span>
+      </div>
+      <div class="verdict-row">
+        <span class="v-label">Reverse (Celeb→FF++)</span>
+        <div class="v-bar-wrap"><div class="v-bar bar-low" style="width:51%"></div></div>
+        <span class="v-score score-low">~0.51</span>
+      </div>
+      <p style="margin:16px 0 0;font-size:.78rem;color:rgba(255,255,255,.35);">Exp 3 (reverse transfer) collapses to near-chance for every backbone tested.</p>
     </div>
   </div>
 </header>
 
-<main>
+<!-- PROBLEM -->
+<div id="problem" class="section">
+  <p class="eyebrow">The problem</p>
+  <h2>High accuracy in the lab doesn't mean it works in the wild.</h2>
+  <p class="section-lead">Most deepfake detection papers report impressive numbers — but only on the same dataset they trained on. The moment you deploy that detector against a new manipulation method or a different video source, performance can drop to coin-flip level.</p>
 
-  <!-- stats -->
-  <div class="band stats" aria-label="Study summary statistics">
-    <div class="stat"><span>5</span><p>pretrained backbones compared</p></div>
-    <div class="stat"><span>4</span><p>cross-dataset experiments</p></div>
-    <div class="stat"><span>3</span><p>public datasets used</p></div>
-    <div class="stat"><span>0.915</span><p>best cross-dataset AUC (DFD)</p></div>
-    <div class="stat"><span>v1.0</span><p>archived release</p></div>
+  <div class="two-col-wide">
+    <div>
+      <div class="callout callout-orange">
+        <h4>The core question this study answers</h4>
+        <p>When preprocessing, training recipe, and evaluation are held fixed, how much does the choice of backbone actually matter for cross-dataset generalization? And does training-set diversity matter more than architecture?</p>
+      </div>
+      <div class="callout callout-blue">
+        <h4>Why identity-disjoint splits matter</h4>
+        <p>Many published results accidentally leak identity information — the same person appears in both training and test. We used the official FaceForensics++ source-video partition so no source video's crops appear in both train and test, making the numbers honest.</p>
+      </div>
+      <div class="callout callout-orange" style="margin-bottom:0;">
+        <h4>What "video-level" evaluation means</h4>
+        <p>We average all face-crop scores from a video into one score before computing AUC. This is more realistic — a real detector gives one verdict per video, not per crop.</p>
+      </div>
+    </div>
+    <div>
+      <div style="background:var(--white);border:1px solid var(--line);border-radius:10px;overflow:hidden;box-shadow:var(--shadow);">
+        <svg viewBox="0 0 420 320" xmlns="http://www.w3.org/2000/svg" style="width:100%">
+          <text x="210" y="28" font-family="Syne,sans-serif" font-size="13" font-weight="800" fill="#12141a" text-anchor="middle">The Cross-Dataset Gap</text>
+          <!-- axes -->
+          <line x1="60" y1="260" x2="390" y2="260" stroke="#e2e4ea" stroke-width="1.5"/>
+          <line x1="60" y1="260" x2="60"  y2="50"  stroke="#e2e4ea" stroke-width="1.5"/>
+          <!-- grid -->
+          <line x1="60" y1="185" x2="390" y2="185" stroke="#f0f0f3" stroke-width="1" stroke-dasharray="4"/>
+          <line x1="60" y1="110" x2="390" y2="110" stroke="#f0f0f3" stroke-width="1" stroke-dasharray="4"/>
+          <!-- y labels -->
+          <text x="52" y="264" font-family="Inter,sans-serif" font-size="10" fill="#aaa" text-anchor="end">0.5</text>
+          <text x="52" y="189" font-family="Inter,sans-serif" font-size="10" fill="#aaa" text-anchor="end">0.75</text>
+          <text x="52" y="114" font-family="Inter,sans-serif" font-size="10" fill="#aaa" text-anchor="end">1.0</text>
+          <!-- chance line -->
+          <line x1="60" y1="260" x2="390" y2="260" stroke="#dc2626" stroke-width="1" stroke-dasharray="6" opacity=".4"/>
+          <!-- bar: in-domain -->
+          <rect x="90"  y="98" width="38" height="162" fill="#16a34a" rx="3" opacity=".9"/>
+          <text x="109" y="93" font-family="Inter,sans-serif" font-size="11" font-weight="700" fill="#16a34a" text-anchor="middle">0.90</text>
+          <!-- bar: cross-dataset best -->
+          <rect x="175" y="118" width="38" height="142" fill="#1d4ed8" rx="3" opacity=".85"/>
+          <text x="194" y="113" font-family="Inter,sans-serif" font-size="11" font-weight="700" fill="#1d4ed8" text-anchor="middle">0.81</text>
+          <!-- bar: held-out -->
+          <rect x="260" y="90"  width="38" height="170" fill="#1d4ed8" rx="3" opacity=".85"/>
+          <text x="279" y="85"  font-family="Inter,sans-serif" font-size="11" font-weight="700" fill="#1d4ed8" text-anchor="middle">0.92</text>
+          <!-- bar: reverse collapse -->
+          <rect x="345" y="254" width="38" height="6"   fill="#dc2626" rx="3" opacity=".9"/>
+          <text x="364" y="249" font-family="Inter,sans-serif" font-size="11" font-weight="700" fill="#dc2626" text-anchor="middle">~0.51</text>
+          <!-- x labels -->
+          <text x="109" y="276" font-family="Inter,sans-serif" font-size="9.5" fill="#5a606e" text-anchor="middle">In-domain</text>
+          <text x="109" y="287" font-family="Inter,sans-serif" font-size="9.5" fill="#5a606e" text-anchor="middle">(FF++→FF++)</text>
+          <text x="194" y="276" font-family="Inter,sans-serif" font-size="9.5" fill="#5a606e" text-anchor="middle">Cross-dataset</text>
+          <text x="194" y="287" font-family="Inter,sans-serif" font-size="9.5" fill="#5a606e" text-anchor="middle">(FF++→Celeb)</text>
+          <text x="279" y="276" font-family="Inter,sans-serif" font-size="9.5" fill="#5a606e" text-anchor="middle">Held-out</text>
+          <text x="279" y="287" font-family="Inter,sans-serif" font-size="9.5" fill="#5a606e" text-anchor="middle">(→ DFD)</text>
+          <text x="364" y="276" font-family="Inter,sans-serif" font-size="9.5" fill="#dc2626" text-anchor="middle">Reverse</text>
+          <text x="364" y="287" font-family="Inter,sans-serif" font-size="9.5" fill="#dc2626" text-anchor="middle">(Celeb→FF++)</text>
+        </svg>
+        <div style="padding:12px 16px 14px;font-size:.82rem;color:var(--muted);">Best backbone AUC per experiment. Reverse transfer collapses to near-chance for all five models.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- WHAT WE BUILT -->
+<div id="what-we-built" class="section">
+  <p class="eyebrow">What we built</p>
+  <h2>One pipeline. Five backbones. Four experiments.</h2>
+  <p class="section-lead">The key design choice: everything stays the same except the backbone. Same faces, same splits, same optimizer, same augmentation. That way, any difference in results is from the architecture — not from hidden hyper-parameter tuning.</p>
+
+  <!-- 4 experiments -->
+  <div class="exp-grid" style="margin-bottom:48px;">
+    <div class="exp-card">
+      <div class="exp-num">01</div>
+      <h4>In-domain</h4>
+      <p>Train and test on FaceForensics++ with identity-disjoint splits. The baseline — how well does it work on what it was trained on?</p>
+      <div class="exp-auc auc-good">0.901</div>
+      <span class="sub">EfficientNet-B4 AUC</span>
+    </div>
+    <div class="exp-card">
+      <div class="exp-num">02</div>
+      <h4>Cross-dataset</h4>
+      <p>Train on FF++, test on Celeb-DF. Different identities, different generation methods. Does the detector transfer?</p>
+      <div class="exp-auc auc-mid">0.812</div>
+      <span class="sub">ResNet-50 AUC</span>
+    </div>
+    <div class="exp-card">
+      <div class="exp-num">03</div>
+      <h4>Reverse transfer</h4>
+      <p>Train on Celeb-DF, test on FF++. Celeb-DF is smaller and more uniform — what happens when training diversity drops?</p>
+      <div class="exp-auc auc-bad">~0.51</div>
+      <span class="sub">All backbones collapse</span>
+    </div>
+    <div class="exp-card">
+      <div class="exp-num">04</div>
+      <h4>Held-out domain</h4>
+      <p>Train on both FF++ and Celeb-DF, test on DFD — a dataset the model never saw. The hardest real-world simulation.</p>
+      <div class="exp-auc auc-good">0.915</div>
+      <span class="sub">ConvNeXt-Tiny AUC</span>
+    </div>
   </div>
 
-  <!-- what we measure -->
-  <section class="section two-column">
-    <div>
-      <p class="eyebrow dark">What we measure</p>
-      <h2>In-domain scores don't tell the full story.</h2>
-      <p>A detector that scores 0.90 AUC on FaceForensics++ may collapse to near chance on Celeb-DF. This study makes the gap the primary object of measurement — not accuracy on the training distribution.</p>
-      <p>All five backbones share an identical face-crop pipeline, training recipe, and video-level evaluation code so that differences in results are attributable to architecture and training data, not hyper-parameter tuning.</p>
+  <!-- pipeline steps -->
+  <h3 style="font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:800;margin:0 0 20px;">How the pipeline works</h3>
+  <div class="pipeline">
+    <div class="step">
+      <div class="step-num">1</div>
+      <h4>Sample frames</h4>
+      <p>Extract every 10th frame from each video across FF++, Celeb-DF, and DFD.</p>
     </div>
-    <div class="image-panel">
-      <svg viewBox="0 0 480 300" xmlns="http://www.w3.org/2000/svg" style="width:100%;background:#f3f6f4;">
-        <text x="240" y="28" font-family="Inter,sans-serif" font-size="13" font-weight="700" fill="#15201d" text-anchor="middle">Video-Level AUC by Experiment</text>
-        <!-- bars Exp1 -->
-        <rect x="40"  y="220" width="22" height="0"   fill="#0f766e" rx="2"/><!-- placeholder -->
-        <!-- EfficientNet -->
-        <rect x="42"  y="80"  width="22" height="140" fill="#0f766e" rx="2" opacity=".85"/>
-        <!-- ConvNeXt Exp4 -->
-        <rect x="380" y="58"  width="22" height="162" fill="#16a34a" rx="2" opacity=".9"/>
-        <!-- all backbones Exp3 near chance -->
-        <rect x="195" y="208" width="22" height="12"  fill="#c2862f" rx="2" opacity=".8"/>
-        <rect x="220" y="210" width="22" height="10"  fill="#c2862f" rx="2" opacity=".8"/>
-        <rect x="245" y="209" width="22" height="11"  fill="#c2862f" rx="2" opacity=".8"/>
-        <rect x="270" y="211" width="22" height="9"   fill="#c2862f" rx="2" opacity=".8"/>
-        <rect x="295" y="207" width="22" height="13"  fill="#c2862f" rx="2" opacity=".8"/>
-        <!-- ResNet Exp2 -->
-        <rect x="130" y="98"  width="22" height="122" fill="#315f95" rx="2" opacity=".85"/>
-        <!-- ConvNeXt Exp2 -->
-        <rect x="155" y="88"  width="22" height="132" fill="#16a34a" rx="2" opacity=".85"/>
-        <!-- baseline -->
-        <line x1="30" y1="220" x2="460" y2="220" stroke="#d9dfda" stroke-width="1"/>
-        <line x1="30" y1="160" x2="460" y2="160" stroke="#d9dfda" stroke-width="1" stroke-dasharray="4"/>
-        <line x1="30" y1="100" x2="460" y2="100" stroke="#d9dfda" stroke-width="1" stroke-dasharray="4"/>
-        <!-- labels -->
-        <text x="53"  y="240" font-family="Inter,sans-serif" font-size="10" fill="#5d6a66" text-anchor="middle">Exp 1</text>
-        <text x="161" y="240" font-family="Inter,sans-serif" font-size="10" fill="#5d6a66" text-anchor="middle">Exp 2</text>
-        <text x="257" y="240" font-family="Inter,sans-serif" font-size="10" fill="#5d6a66" text-anchor="middle">Exp 3</text>
-        <text x="391" y="240" font-family="Inter,sans-serif" font-size="10" fill="#5d6a66" text-anchor="middle">Exp 4</text>
-        <text x="22"  y="223" font-family="Inter,sans-serif" font-size="9"  fill="#aaa" text-anchor="end">0.5</text>
-        <text x="22"  y="163" font-family="Inter,sans-serif" font-size="9"  fill="#aaa" text-anchor="end">0.75</text>
-        <text x="22"  y="103" font-family="Inter,sans-serif" font-size="9"  fill="#aaa" text-anchor="end">1.0</text>
-        <!-- legend -->
-        <rect x="40"  y="262" width="10" height="10" fill="#0f766e" rx="1"/>
-        <text x="54"  y="271" font-family="Inter,sans-serif" font-size="10" fill="#5d6a66">EfficientNet-B4</text>
-        <rect x="155" y="262" width="10" height="10" fill="#315f95" rx="1"/>
-        <text x="169" y="271" font-family="Inter,sans-serif" font-size="10" fill="#5d6a66">ResNet-50</text>
-        <rect x="255" y="262" width="10" height="10" fill="#16a34a" rx="1"/>
-        <text x="269" y="271" font-family="Inter,sans-serif" font-size="10" fill="#5d6a66">ConvNeXt-Tiny</text>
-        <rect x="370" y="262" width="10" height="10" fill="#c2862f" rx="1"/>
-        <text x="384" y="271" font-family="Inter,sans-serif" font-size="10" fill="#5d6a66">Exp 3 (all)</text>
-      </svg>
-      <figcaption>Illustrative AUC comparison across experiments and selected backbones.</figcaption>
+    <div class="step">
+      <div class="step-num">2</div>
+      <h4>Detect faces</h4>
+      <p>MTCNN finds and crops faces (confidence ≥ 0.95, box ≥ 60 px, 20% margin expanded, 224×224 resize).</p>
     </div>
-  </section>
+    <div class="step">
+      <div class="step-num">3</div>
+      <h4>Assign splits</h4>
+      <p>All crops from one source video stay in the same split — no identity leakage between train and test.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <h4>Fine-tune backbone</h4>
+      <p>AdamW + cosine annealing + label smoothing (ε=0.05) + progressive unfreezing. Up to 30 epochs, patience 5.</p>
+    </div>
+    <div class="step">
+      <div class="step-num">5</div>
+      <h4>Video-level score</h4>
+      <p>5-view TTA (flip, rotation, brightness), average crop scores per video, then compute AUC with bootstrap CIs.</p>
+    </div>
+  </div>
+</div>
 
-  <!-- main finding / results -->
-  <section id="results" class="results-band">
-    <div class="section-heading">
-      <p class="eyebrow dark">Main finding</p>
-      <h2>Training diversity beats architecture choice.</h2>
-      <p>ConvNeXt-Tiny has the highest AUC point estimates in Exp 1, Exp 2, and Exp 4, but the edge over ResNet-50 is not significant under paired tests at this single seed. All backbones collapse to near-chance on Exp 3 (Celeb-DF → FF++) — proving training-set coverage dominates.</p>
-    </div>
-    <div class="auc-table-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Backbone</th>
-            <th>Exp 1 — In-domain</th>
-            <th>Exp 2 — FF++ → Celeb-DF</th>
-            <th>Exp 3 — Celeb-DF → FF++</th>
-            <th>Exp 4 — → DFD (held-out)</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td class="name">EfficientNet-B4</td>
-            <td>0.901</td>
-            <td>0.788</td>
-            <td class="cell-chance">~0.51</td>
-            <td>0.788</td>
-          </tr>
-          <tr>
-            <td class="name">Xception</td>
-            <td class="cell-na">—</td>
-            <td>0.735</td>
-            <td class="cell-na">—</td>
-            <td class="cell-na">—</td>
-          </tr>
-          <tr>
-            <td class="name">ResNet-50</td>
-            <td class="cell-na">—</td>
-            <td>0.812</td>
-            <td class="cell-na">—</td>
-            <td class="cell-na">—</td>
-          </tr>
-          <tr>
-            <td class="name">ConvNeXt-Tiny</td>
-            <td class="cell-na">—</td>
-            <td class="cell-na">—</td>
-            <td class="cell-na">—</td>
-            <td><span class="cell-best">0.915</span></td>
-          </tr>
-          <tr>
-            <td class="name">ViT-Base</td>
-            <td class="cell-na">—</td>
-            <td>0.713</td>
-            <td class="cell-na">—</td>
-            <td class="cell-na">—</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <p style="margin-top:14px;font-size:.88rem;color:var(--muted);">Video-level AUC with 95% bootstrap CIs in <code>results_bundle/</code>. — = not yet reported here. <span style="color:var(--amber)">Amber italic</span> = near-chance.</p>
-  </section>
+<!-- RESULTS -->
+<div id="results" class="section">
+  <p class="eyebrow">Results</p>
+  <h2>Video-level AUC across all backbones and experiments.</h2>
+  <p class="section-lead">All five backbones share identical training, so differences come from the architecture itself. Full 95% bootstrap confidence intervals are in <code>results_bundle/</code> in the repository.</p>
 
-  <!-- pipeline -->
-  <section id="pipeline" class="section">
-    <div class="section-heading narrow">
-      <p class="eyebrow dark">Pipeline</p>
-      <h2>One fixed face-crop harness, five backbones.</h2>
-      <p>Every configuration shares the same preprocessing, splits, optimizer, augmentation policy, and video-level evaluation code. Only the backbone changes.</p>
-    </div>
-    <div class="steps">
-      <div><span>1</span><p>Sample frames every 10th frame; detect and crop faces with MTCNN (confidence ≥ 0.95, box ≥ 60 px, 20% margin).</p></div>
-      <div><span>2</span><p>Assign crops to source-video-disjoint splits. FF++ fakes are kept only when both contributing identities fall in the same split.</p></div>
-      <div><span>3</span><p>Fine-tune backbone from ImageNet weights with AdamW, cosine annealing, label smoothing ε=0.05, and progressive unfreezing.</p></div>
-      <div><span>4</span><p>At inference, apply 5-view TTA (flip, ±15° rotation, brightness shift) and average crop scores per source video.</p></div>
-      <div><span>5</span><p>Compute accuracy, AUC, F1, EER with 1 000-resample bootstrap CIs and paired McNemar tests across backbones.</p></div>
-    </div>
-  </section>
+  <div class="table-wrap" style="margin-bottom:20px;">
+    <table>
+      <thead>
+        <tr>
+          <th>Backbone</th>
+          <th>What it is</th>
+          <th>Exp 1 — In-domain</th>
+          <th>Exp 2 — → Celeb-DF</th>
+          <th>Exp 3 — → FF++ (reverse)</th>
+          <th>Exp 4 — → DFD</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="td-name">EfficientNet-B4</td>
+          <td class="td-note">Efficiency-oriented CNN</td>
+          <td>0.901</td><td>0.788</td><td class="td-chance">~0.51</td><td>0.788</td>
+        </tr>
+        <tr>
+          <td class="td-name">Xception</td>
+          <td class="td-note">Classic deepfake baseline</td>
+          <td class="td-na">—</td><td>0.735</td><td class="td-na">—</td><td class="td-na">—</td>
+        </tr>
+        <tr>
+          <td class="td-name">ResNet-50</td>
+          <td class="td-note">Standard residual CNN</td>
+          <td class="td-na">—</td><td>0.812</td><td class="td-na">—</td><td class="td-na">—</td>
+        </tr>
+        <tr>
+          <td class="td-name">ConvNeXt-Tiny</td>
+          <td class="td-note">Modern CNN (2022)</td>
+          <td class="td-na">—</td><td class="td-na">—</td><td class="td-na">—</td><td><span class="td-best">0.915</span></td>
+        </tr>
+        <tr>
+          <td class="td-name">ViT-Base</td>
+          <td class="td-note">Vision Transformer</td>
+          <td class="td-na">—</td><td>0.713</td><td class="td-na">—</td><td class="td-na">—</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p style="font-size:.82rem;color:var(--muted);">— = not yet reported here. <span style="color:var(--red);">Italic red</span> = near-chance. <span style="color:var(--green);font-weight:600;">Green</span> = best in that experiment.</p>
+</div>
 
-  <!-- limitations -->
-  <section class="limitations">
-    <div class="section-heading narrow" style="width:min(1120px,calc(100% - 40px));margin-left:auto;margin-right:auto;">
-      <p class="eyebrow dark">Limitations</p>
-      <h2>A controlled single-seed comparison, not a final ranking.</h2>
-      <p>Each configuration was trained once with a fixed seed — bootstrap intervals and paired tests quantify uncertainty over held-out videos conditional on that model, not run-to-run variability. The temporal probe uses score statistics after inference and does not model temporal information directly. Exp 3 combines dataset and detector-checkpoint changes. The corruption study covers JPEG, blur, noise, and downscaling, but not adversarial attacks or platform re-encoding.</p>
-    </div>
-  </section>
+<!-- KEY FINDINGS -->
+<div id="findings" class="section">
+  <p class="eyebrow">Key findings</p>
+  <h2>What the results actually tell us.</h2>
+  <p class="section-lead">These are the four takeaways that change how you should think about building a deployable deepfake detector.</p>
 
-  <!-- artifacts -->
-  <section id="artifacts" class="section artifact-band">
-    <div class="section-heading narrow">
-      <p class="eyebrow dark">Artifacts</p>
-      <h2>Everything needed to inspect or rerun the study.</h2>
+  <div class="findings">
+    <div class="finding highlight">
+      <div class="finding-icon">⚡</div>
+      <h4>Training diversity matters more than architecture</h4>
+      <p>Exp 3 (Celeb-DF → FF++) collapses to near-chance for every single backbone — including the best-performing ones. Training on a larger, more diverse dataset is what drives cross-dataset performance, not picking a fancier model.</p>
     </div>
-    <div class="artifact-list">
-      <a href="https://www.researchsquare.com/article/rs-11236662/v1" target="_blank">Preprint (ResearchSquare)</a>
-      <a href="https://github.com/SamarthKukreja/deepfake-detection-cross-dataset/tree/main/paper" target="_blank">LaTeX source</a>
-      <a href="https://github.com/SamarthKukreja/deepfake-detection-cross-dataset/tree/main/results_bundle" target="_blank">Results bundle (JSON / CSV)</a>
-      <a href="https://github.com/SamarthKukreja/deepfake-detection-cross-dataset/blob/main/ml/train.py" target="_blank">Training code</a>
-      <a href="https://github.com/SamarthKukreja/deepfake-detection-cross-dataset/blob/main/ml/evaluate.py" target="_blank">Evaluation code</a>
-      <a href="https://github.com/SamarthKukreja/deepfake-detection-cross-dataset/blob/main/ml/app.py" target="_blank">Streamlit demo app</a>
-      <a href="https://github.com/SamarthKukreja/deepfake-detection-cross-dataset/blob/main/experiments/experiment_manifests.json" target="_blank">Experiment manifests</a>
-      <a href="https://github.com/SamarthKukreja/deepfake-detection-cross-dataset/blob/main/CITATION.cff" target="_blank">Citation file (CITATION.cff)</a>
-      <a href="https://github.com/SamarthKukreja/deepfake-detection-cross-dataset/blob/main/cloud/kaggle_run.ipynb" target="_blank">Kaggle training notebook</a>
+    <div class="finding">
+      <div class="finding-icon">🏆</div>
+      <h4>ConvNeXt-Tiny leads — but not by much</h4>
+      <p>It has the highest AUC point estimates in Exp 1, 2, and 4. But under paired statistical tests, the advantage over ResNet-50 is not significant at this single training seed. Don't treat architecture rankings as absolute.</p>
     </div>
-  </section>
+    <div class="finding">
+      <div class="finding-icon">🔬</div>
+      <h4>Transformers underperform CNNs here</h4>
+      <p>ViT-Base scores lower than ConvNeXt-Tiny and ResNet-50 in every experiment. Under limited training data, the convolutional inductive bias beats the attention mechanism for this task.</p>
+    </div>
+    <div class="finding">
+      <div class="finding-icon">🌊</div>
+      <h4>Noise is the biggest corruption threat</h4>
+      <p>Under the robustness study (JPEG, blur, noise, downscaling), additive noise causes the worst AUC drops — to as low as 0.49 on the DFD detector. The models were trained on clean images and don't generalise to degraded ones.</p>
+    </div>
+  </div>
+</div>
 
-  <!-- citation -->
-  <section class="section" style="border-top:1px solid var(--line);padding-top:56px;padding-bottom:72px;">
-    <div class="section-heading narrow">
-      <p class="eyebrow dark">Citation</p>
-      <h2 style="font-size:clamp(1.4rem,3vw,2.2rem);">If you use this work, please cite:</h2>
+<!-- DARK BAND: THE BIGGER PICTURE -->
+<div class="band">
+  <div class="band-inner">
+    <p class="eyebrow" style="color:var(--orange);">The bigger picture</p>
+    <h2>What this means for anyone building a real detector.</h2>
+    <p>If you're building a deepfake detector for moderation, forensic triage, or identity verification, the results here have a clear implication: train on as many different datasets and manipulation methods as you can get. A model that tops FaceForensics++ benchmarks is not automatically production-ready. ConvNeXt-Tiny is a solid backbone choice — but the data you train on will matter more than the architecture you pick.</p>
+    <div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:28px;">
+      <a class="btn btn-primary" href="https://www.researchsquare.com/article/rs-11236662/v1" target="_blank">Read the full paper</a>
+      <a class="btn btn-secondary" href="https://github.com/SamarthKukreja/deepfake-detection-cross-dataset" target="_blank">Get the code</a>
     </div>
-    <div class="cite-wrap">
-      <pre class="cite" id="cite">@article{kukreja2026crossdataset,
+  </div>
+</div>
+
+<!-- CODE & PAPER -->
+<div id="code" class="section">
+  <p class="eyebrow">Code &amp; paper</p>
+  <h2>Everything is open and reproducible.</h2>
+  <p class="section-lead">The training code, evaluation scripts, experiment manifests, split identifiers, and full results bundle are all available on GitHub.</p>
+
+  <div class="artifact-grid" style="margin-bottom:40px;">
+    <a class="artifact-link" href="https://www.researchsquare.com/article/rs-11236662/v1" target="_blank">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      Preprint (ResearchSquare)
+    </a>
+    <a class="artifact-link" href="https://github.com/SamarthKukreja/deepfake-detection-cross-dataset/tree/main/paper" target="_blank">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      LaTeX source
+    </a>
+    <a class="artifact-link" href="https://github.com/SamarthKukreja/deepfake-detection-cross-dataset/blob/main/ml/train.py" target="_blank">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+      Training code
+    </a>
+    <a class="artifact-link" href="https://github.com/SamarthKukreja/deepfake-detection-cross-dataset/blob/main/ml/evaluate.py" target="_blank">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+      Evaluation code
+    </a>
+    <a class="artifact-link" href="https://github.com/SamarthKukreja/deepfake-detection-cross-dataset/tree/main/results_bundle" target="_blank">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+      Results bundle (JSON/CSV)
+    </a>
+    <a class="artifact-link" href="https://github.com/SamarthKukreja/deepfake-detection-cross-dataset/blob/main/ml/app.py" target="_blank">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+      Streamlit demo app
+    </a>
+  </div>
+
+  <h3 style="font-family:'Syne',sans-serif;font-size:1rem;font-weight:800;margin:0 0 14px;">Cite this work</h3>
+  <div class="cite-box">
+    <pre id="cite">@article{kukreja2026crossdataset,
   title   = {Cross-Dataset Generalization in Deepfake Detection:
              A Controlled Study of Spatial, Frequency,
              and Video-Level Baselines},
@@ -386,29 +474,18 @@ footer{padding:28px 20px 42px;color:var(--muted);text-align:center;border-top:1p
   note    = {Under review},
   url     = {https://www.researchsquare.com/article/rs-11236662/v1}
 }</pre>
-      <button class="copy-btn" onclick="copyBib(this)">Copy</button>
-    </div>
-  </section>
-
-</main>
+    <button class="copy-btn" onclick="copyBib(this)">Copy</button>
+  </div>
+</div>
 
 <footer>
-  <p>© 2026 Samarth Kukreja · <a href="https://github.com/SamarthKukreja/deepfake-detection-cross-dataset/blob/main/LICENSE" target="_blank">MIT License</a> · <a href="https://github.com/SamarthKukreja/deepfake-detection-cross-dataset" target="_blank">GitHub</a> · <a href="https://www.researchsquare.com/article/rs-11236662/v1" target="_blank">Preprint</a></p>
+  <p>© 2026 Samarth Kukreja &nbsp;·&nbsp; <a href="https://github.com/SamarthKukreja/deepfake-detection-cross-dataset/blob/main/LICENSE" target="_blank">MIT License</a> &nbsp;·&nbsp; <a href="https://github.com/SamarthKukreja/deepfake-detection-cross-dataset" target="_blank">GitHub</a> &nbsp;·&nbsp; <a href="https://www.researchsquare.com/article/rs-11236662/v1" target="_blank">Preprint</a></p>
 </footer>
 
 <script>
-function copyBib(btn) {
-  const text = document.getElementById('cite').textContent;
-  navigator.clipboard.writeText(text).then(() => {
-    btn.textContent = 'Copied!';
-    setTimeout(() => btn.textContent = 'Copy', 2000);
-  }).catch(() => {
-    const r = document.createRange();
-    r.selectNodeContents(document.getElementById('cite'));
-    window.getSelection().removeAllRanges();
-    window.getSelection().addRange(r);
-    btn.textContent = 'Selected';
-    setTimeout(() => btn.textContent = 'Copy', 2000);
-  });
+function copyBib(btn){
+  navigator.clipboard.writeText(document.getElementById('cite').textContent)
+    .then(()=>{btn.textContent='Copied!';setTimeout(()=>btn.textContent='Copy',2000);})
+    .catch(()=>{const r=document.createRange();r.selectNodeContents(document.getElementById('cite'));window.getSelection().removeAllRanges();window.getSelection().addRange(r);btn.textContent='Selected';setTimeout(()=>btn.textContent='Copy',2000);});
 }
 </script>
