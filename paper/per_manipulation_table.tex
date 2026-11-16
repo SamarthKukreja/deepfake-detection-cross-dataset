@@ -1,0 +1,18 @@
+\begin{table*}[!htbp]
+\caption{Per-manipulation detection from regenerated scores on Exp1 (FF++ in-distribution): video-level AUC of each manipulation family's fakes against the shared real videos. Lower values mark manipulation types a backbone finds harder.}
+\centering
+\small
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Backbone} & \textbf{Deepfakes} & \textbf{Face2Face} & \textbf{FaceShifter} & \textbf{FaceSwap} & \textbf{NeuralTextures} \\
+\midrule
+EfficientNet-B4 & 0.940 & 0.887 & 0.912 & 0.915 & 0.810 \\
+Xception & 0.860 & 0.599 & 0.652 & 0.850 & 0.697 \\
+ResNet-50 & 0.953 & 0.940 & 0.851 & 0.974 & 0.819 \\
+ConvNeXt-Tiny & 0.973 & 0.983 & 0.924 & 0.985 & 0.874 \\
+ViT-Base & 0.934 & 0.862 & 0.861 & 0.930 & 0.656 \\
+\botrule
+\end{tabular}
+\label{tab:per_manip}
+\end{table*}

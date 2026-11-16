@@ -1,0 +1,18 @@
+\begin{table*}[!htbp]
+\caption{Video-level confusion counts from regenerated scores for Exp1 on FF++ (80 real and 69 fake videos; threshold $0.5$). TP and TN denote correctly classified fake and real videos, respectively. FP denotes a real video classified as fake, and FN denotes a fake video classified as real.}
+\centering
+\small
+\setlength{\tabcolsep}{3pt}
+\begin{tabular}{l cccc}
+\toprule
+\textbf{Backbone} & \textbf{TP} & \textbf{TN} & \textbf{FP} & \textbf{FN} \\
+\midrule
+EfficientNet-B4 & 43 & 76 & 4 & 26 \\
+Xception & 52 & 48 & 32 & 17 \\
+ResNet-50 & 53 & 75 & 5 & 16 \\
+ConvNeXt-Tiny & 55 & 77 & 3 & 14 \\
+ViT-Base & 55 & 59 & 21 & 14 \\
+\botrule
+\end{tabular}
+\label{tab:confusion_exp1}
+\end{table*}
