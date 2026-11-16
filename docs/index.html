@@ -1,0 +1,414 @@
+<title>Cross-Dataset Deepfake Detection</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="A controlled study of spatial, frequency, and video-level baselines for cross-dataset deepfake detection.">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400&display=swap">
+
+<style>
+/* ── tokens ─────────────────────────────────────────── */
+:root {
+  --bg:       #ffffff;
+  --bg2:      #f7f7f8;
+  --border:   #e4e4e7;
+  --fg:       #18181b;
+  --fg2:      #52525b;
+  --fg3:      #a1a1aa;
+  --accent:   #2563eb;
+  --accent-s: #dbeafe;
+  --best:     #16a34a;
+  --best-s:   #dcfce7;
+  --warn:     #d97706;
+  --mono:     'JetBrains Mono', monospace;
+  --sans:     'Inter', system-ui, sans-serif;
+  --display:  'Space Grotesk', sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f0f10; --bg2: #18181b; --border: #27272a;
+    --fg: #fafafa; --fg2: #a1a1aa; --fg3: #52525b;
+    --accent: #60a5fa; --accent-s: #1e3a5f;
+    --best: #4ade80; --best-s: #052e16;
+    --warn: #fbbf24;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f0f10; --bg2: #18181b; --border: #27272a;
+  --fg: #fafafa; --fg2: #a1a1aa; --fg3: #52525b;
+  --accent: #60a5fa; --accent-s: #1e3a5f;
+  --best: #4ade80; --best-s: #052e16;
+  --warn: #fbbf24;
+  color-scheme: dark;
+}
+
+/* ── reset ───────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--fg);
+  background: var(--bg);
+  padding-left:  max(16px, env(safe-area-inset-left,  0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ── layout ──────────────────────────────────────────── */
+.page { max-width: 760px; margin: 0 auto; padding-block: 56px 80px; }
+
+/* ── header ──────────────────────────────────────────── */
+.venue {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-s);
+  padding: 3px 10px;
+  border-radius: 4px;
+  margin-bottom: 20px;
+}
+h1 {
+  font-family: var(--display);
+  font-size: clamp(22px, 4vw, 32px);
+  font-weight: 700;
+  line-height: 1.25;
+  text-wrap: balance;
+  color: var(--fg);
+  margin-bottom: 20px;
+}
+.authors {
+  font-size: 15px;
+  color: var(--fg2);
+  margin-bottom: 28px;
+}
+.authors strong { color: var(--fg); }
+.links { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 48px; }
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  color: var(--fg);
+  background: var(--bg2);
+  transition: border-color .15s;
+}
+.btn:hover { border-color: var(--accent); text-decoration: none; color: var(--accent); }
+.btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn.primary:hover { opacity: .88; color: #fff; }
+
+/* ── divider ─────────────────────────────────────────── */
+hr { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
+
+/* ── sections ────────────────────────────────────────── */
+h2 {
+  font-family: var(--display);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--fg);
+  margin-bottom: 14px;
+  text-wrap: balance;
+}
+p { color: var(--fg2); margin-bottom: 14px; line-height: 1.7; }
+p:last-child { margin-bottom: 0; }
+
+/* ── abstract box ────────────────────────────────────── */
+.abstract {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 24px 28px;
+  margin-bottom: 40px;
+}
+.abstract p { font-size: 15px; }
+
+/* ── experiment table ────────────────────────────────── */
+.table-wrap { overflow-x: auto; margin-bottom: 32px; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  min-width: 480px;
+}
+thead th {
+  font-family: var(--display);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--fg3);
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 2px solid var(--border);
+}
+tbody td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--fg2);
+}
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: var(--bg2); }
+.best {
+  color: var(--best);
+  font-weight: 600;
+  background: var(--best-s);
+  border-radius: 4px;
+  padding: 2px 6px;
+}
+.chance {
+  color: var(--warn);
+  font-style: italic;
+}
+td.model-name { color: var(--fg); font-weight: 500; }
+
+/* ── findings ────────────────────────────────────────── */
+.findings { display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px; }
+.finding {
+  display: flex;
+  gap: 14px;
+  padding: 16px 18px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.finding-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+.finding-text { font-size: 14px; color: var(--fg2); line-height: 1.6; }
+.finding-text strong { color: var(--fg); }
+
+/* ── citation box ────────────────────────────────────── */
+.cite-block {
+  position: relative;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px 24px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--fg2);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.copy-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--fg2);
+  cursor: pointer;
+  transition: color .15s;
+}
+.copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+/* ── footer ──────────────────────────────────────────── */
+footer {
+  margin-top: 64px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--fg3);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+}
+footer a { color: var(--fg3); }
+footer a:hover { color: var(--accent); text-decoration: none; }
+</style>
+
+<div class="page">
+
+  <!-- header -->
+  <div class="venue">Under Review · Signal, Image and Video Processing</div>
+  <h1>Cross-Dataset Generalization in Deepfake Detection: A Controlled Study of Spatial, Frequency, and Video-Level Baselines</h1>
+  <p class="authors"><strong>Samarth Kukreja</strong> · Independent Researcher, Faridabad, India</p>
+
+  <div class="links">
+    <a class="btn primary" href="https://www.researchsquare.com/article/rs-11236662/v1" target="_blank">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      Preprint
+    </a>
+    <a class="btn" href="https://github.com/SamarthKukreja/deepfake-detection-cross-dataset" target="_blank">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      Code
+    </a>
+    <a class="btn" href="../paper/research_paper.tex" target="_blank">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      LaTeX Source
+    </a>
+  </div>
+
+  <!-- abstract -->
+  <h2>Abstract</h2>
+  <div class="abstract">
+    <p>Deepfake detectors can report strong in-domain scores but still fail when test videos come from a different dataset or are degraded by common image corruptions. This study evaluates that gap with one fixed face-based pipeline and five ImageNet-pretrained RGB backbones: EfficientNet-B4, Xception, ResNet-50, ConvNeXt-Tiny, and ViT-Base.</p>
+    <p>Experiments use FaceForensics++ (FF++), Celeb-DF (v2), and the DeepFake Detection (DFD) dataset across one source-video-disjoint in-distribution setting and three cross-dataset transfer settings. Metrics are computed at the video level with bootstrap 95% confidence intervals and paired tests on the same held-out videos. Two low-cost probes are also reported: a score-level temporal aggregation baseline and a lightweight frequency-only ResNet-18.</p>
+    <p>ConvNeXt-Tiny leads in Exp1, Exp2, and Exp4, but its advantage over ResNet-50 is not significant under paired procedures at this single training seed. Source-domain coverage and evaluation protocol matter at least as much as backbone choice.</p>
+  </div>
+
+  <hr>
+
+  <!-- experiment protocol -->
+  <h2>Experiment Protocol</h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Exp</th>
+          <th>Setting</th>
+          <th>Train</th>
+          <th>Test</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>1</td><td>In-domain, source-video-disjoint</td><td>FF++</td><td>FF++</td></tr>
+        <tr><td>2</td><td>Cross-dataset</td><td>FF++</td><td>Celeb-DF</td></tr>
+        <tr><td>3</td><td>Reverse transfer</td><td>Celeb-DF</td><td>FF++</td></tr>
+        <tr><td>4</td><td>Held-out domain</td><td>FF++ + Celeb-DF</td><td>DFD</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <hr>
+
+  <!-- results -->
+  <h2>Results — Video-Level AUC</h2>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Backbone</th>
+          <th>Exp 1 (In-domain)</th>
+          <th>Exp 2 (→ Celeb-DF)</th>
+          <th>Exp 3 (→ FF++)</th>
+          <th>Exp 4 (→ DFD)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="model-name">EfficientNet-B4</td>
+          <td>0.901</td>
+          <td>0.788</td>
+          <td class="chance">~0.51</td>
+          <td>0.788</td>
+        </tr>
+        <tr>
+          <td class="model-name">Xception</td>
+          <td>—</td>
+          <td>0.735</td>
+          <td>—</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td class="model-name">ResNet-50</td>
+          <td>—</td>
+          <td>0.812</td>
+          <td>—</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td class="model-name">ConvNeXt-Tiny</td>
+          <td>—</td>
+          <td>—</td>
+          <td>—</td>
+          <td><span class="best">0.915</span></td>
+        </tr>
+        <tr>
+          <td class="model-name">ViT-Base</td>
+          <td>—</td>
+          <td>0.713</td>
+          <td>—</td>
+          <td>—</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p style="font-size:13px; color: var(--fg3);">Full tables with 95% bootstrap CIs are in <code>results_bundle/</code>. — denotes configurations not yet reported here. <span style="color:var(--warn)">Italic</span> = near-chance performance.</p>
+
+  <hr>
+
+  <!-- findings -->
+  <h2>Key Findings</h2>
+  <div class="findings">
+    <div class="finding">
+      <div class="finding-icon">🏆</div>
+      <div class="finding-text"><strong>ConvNeXt-Tiny has the highest AUC point estimates</strong> in Exp 1, Exp 2, and Exp 4. ResNet-50 is a close second; the advantage is not statistically significant under paired tests at this single training seed.</div>
+    </div>
+    <div class="finding">
+      <div class="finding-icon">📉</div>
+      <div class="finding-text"><strong>Celeb-DF → FF++ (Exp 3) collapses to near-chance (~0.51–0.59) for every backbone.</strong> Training-set scale and diversity dominate cross-dataset behaviour more than architecture choice.</div>
+    </div>
+    <div class="finding">
+      <div class="finding-icon">🔄</div>
+      <div class="finding-text"><strong>ViT-Base does not lead</strong> under this leakage-controlled, modest-data regime. The convolutional inductive bias is advantageous over the attention mechanism when training data is limited.</div>
+    </div>
+    <div class="finding">
+      <div class="finding-icon">⏱</div>
+      <div class="finding-text"><strong>Training-free temporal consistency fusion</strong> blends spatial mean score with frame-score variance at inference time — no retraining required: <code>fused = 0.7 · spatial_mean + 0.3 · frame_std</code>.</div>
+    </div>
+    <div class="finding">
+      <div class="finding-icon">🌊</div>
+      <div class="finding-text"><strong>Noise is the most damaging corruption</strong> (AUC drops to ~0.49 under heavy noise), followed by blur, downscaling, and JPEG compression.</div>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- citation -->
+  <h2>Citation</h2>
+  <div style="position:relative">
+    <pre class="cite-block" id="cite">@article{kukreja2026crossdataset,
+  title   = {Cross-Dataset Generalization in Deepfake Detection:
+             A Controlled Study of Spatial, Frequency, and
+             Video-Level Baselines},
+  author  = {Kukreja, Samarth},
+  journal = {Signal, Image and Video Processing},
+  year    = {2026},
+  note    = {Under review},
+  url     = {https://www.researchsquare.com/article/rs-11236662/v1}
+}</pre>
+    <button class="copy-btn" onclick="copyBib(this)">Copy</button>
+  </div>
+
+  <footer>
+    <span>© 2026 Samarth Kukreja · MIT License</span>
+    <span>
+      <a href="https://github.com/SamarthKukreja/deepfake-detection-cross-dataset" target="_blank">GitHub</a> ·
+      <a href="https://www.researchsquare.com/article/rs-11236662/v1" target="_blank">Preprint</a>
+    </span>
+  </footer>
+
+</div>
+
+<script>
+function copyBib(btn) {
+  const text = document.getElementById('cite').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 2000);
+  }).catch(() => {
+    const sel = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(document.getElementById('cite'));
+    sel.removeAllRanges();
+    sel.addRange(range);
+    btn.textContent = 'Select all & copy';
+    setTimeout(() => btn.textContent = 'Copy', 2000);
+  });
+}
+</script>
