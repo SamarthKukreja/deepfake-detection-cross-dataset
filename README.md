@@ -1,6 +1,6 @@
-# Robust Cross-Dataset Deepfake Detection
+# Cross-Dataset Generalization in Deepfake Detection
 
-### A Comparison of CNN and Transformer Backbones
+### A Controlled Study of Spatial, Frequency, and Video-Level Baselines
 
 ## Motivation
 
@@ -9,9 +9,9 @@ inflating reported accuracy. A detector that only works on FaceForensics++ is no
 in the real world where the manipulation method is unknown. This project asks a harder
 question: **does a model trained on one dataset generalise to an entirely different one?**
 
-We train five backbone architectures under an identical recipe across four
-cross-dataset experiments, using identity-disjoint splits throughout so that no person's
-face appears in both train and test.
+Five backbone architectures are trained under an identical recipe across four
+cross-dataset experiments, using source-video-disjoint splits throughout so that no
+source video's crops appear in both train and test.
 
 ---
 
@@ -95,16 +95,19 @@ Full tables with 95 % bootstrap CIs are in `results_bundle/`.
 
 **Key findings:**
 
-- **ConvNeXt-Tiny is the strongest backbone overall**, leading on Exp 1, Exp 2, and Exp 4.
-  ResNet-50 is a close second; both outperform ViT-Base consistently.
+- **ConvNeXt-Tiny has the highest AUC point estimates** in Exp 1, Exp 2, and Exp 4.
+  ResNet-50 is a close second; the advantage over ResNet-50 is not significant under
+  paired tests at this single training seed.
 - **ViT-Base does not lead.** Under this leakage-controlled, modest-data regime the
   convolutional inductive bias is advantageous over the attention mechanism.
 - **Celeb-DF → FF++ (Exp 3) collapses to near chance (~0.51–0.59) for every backbone.**
-  Training on the smaller, more homogeneous Celeb-DF does not generalise to FF++'s varied
-  manipulations. Training-set scale and diversity dominate cross-dataset behaviour more
-  than architecture choice — answering research question 2.
-- **Noise is the most damaging corruption** (AUC drops to ~0.49 under heavy noise on
-  the DFD detector), followed by blur, downscaling, and JPEG compression.
+  Training-set scale and diversity dominate cross-dataset behaviour more than architecture
+  choice.
+- **Noise is the most damaging corruption** (AUC drops to ~0.49 under heavy noise),
+  followed by blur, downscaling, and JPEG compression.
+- **Temporal consistency fusion** (training-free, inference-time) blends the spatial mean
+  score with frame-score variance: `fused = 0.7 · spatial_mean + 0.3 · frame_std`. No
+  retraining required; reported as an exploratory probe alongside frequency-only ResNet-18.
 
 ---
 
@@ -203,6 +206,17 @@ results_bundle/                # metrics JSON per run (weights gitignored)
     robustness.json
     training_history.json
 
+paper/                         # journal submission (Springer Nature)
+  research_paper.tex           # main manuscript
+  results_section_condensed.tex
+  results_section_supplement.tex
+  confusion_table_exp1.tex
+  per_manipulation_table.tex
+  significance_tables.tex
+  Fig1.pdf / Fig2.pdf
+  make_Fig1.py / make_Fig2.py
+  sn-jnl.cls / sn-mathphys-num.bst
+
 organize_experiments.py
 verify_exp1_split.py
 _gen_results_section.py        # generates results_section.tex from results_bundle/
@@ -210,6 +224,14 @@ _gen_results_section.py        # generates results_section.tex from results_bund
 
 Large artifacts (`dataset/`, `faces/`, `*.pth`, `results_bundle/**/plots/`) are
 gitignored and rebuilt via the pipeline above.
+
+---
+
+## Citation
+
+If you use this code or findings, please cite:
+
+> Kukreja, S. (2026). *Cross-Dataset Generalization in Deepfake Detection: A Controlled Study of Spatial, Frequency, and Video-Level Baselines*. Under review at *Signal, Image and Video Processing*. [Preprint](https://www.researchsquare.com/article/rs-11236662/v1).
 
 ---
 
@@ -225,8 +247,9 @@ streamlit run app.py
 Upload a local video file, or paste a link from YouTube, Instagram, TikTok, Twitter/X,
 or any of the 1000+ sites supported by `yt-dlp` — the stream is read directly without
 downloading. All five checkpoints run simultaneously; MTCNN detects faces per frame and
-draws colour-coded bounding boxes (green = real, red = fake). A vote-based ensemble
-produces the final verdict:
+draws colour-coded bounding boxes (green = real, red = fake). Training-free temporal
+consistency fusion blends each model's spatial score with its frame-score variance at
+inference time. A vote-based ensemble produces the final verdict:
 
 | Sensitivity | Votes needed |
 | ----------- | ------------ |
