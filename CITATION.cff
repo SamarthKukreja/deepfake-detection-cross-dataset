@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use this code, please cite the associated paper."
+type: software
+title: "Cross-Dataset Generalization in Deepfake Detection"
+authors:
+  - family-names: Kukreja
+    given-names: Samarth
+    email: samarthkukreja2003@gmail.com
+repository-code: "https://github.com/SamarthKukreja/deepfake-detection-cross-dataset"
+license: MIT
+year: 2026
+preferred-citation:
+  type: article
+  title: "Cross-Dataset Generalization in Deepfake Detection: A Controlled Study of Spatial, Frequency, and Video-Level Baselines"
+  authors:
+    - family-names: Kukreja
+      given-names: Samarth
+  year: 2026
+  status: under-review
+  journal: "Signal, Image and Video Processing"
+  url: "https://www.researchsquare.com/article/rs-11236662/v1"
